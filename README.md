@@ -4,7 +4,7 @@ a parser for creating mdict dictionaries from the monokakido data
 
 ## Usage :
 you need to process the desired dictionary with [this cli](https://git.ajattix.org/hashirama/mkd-utils)\
-and then pass the **contents** folder as INPUT_DIR : <br></br>
+and then pass the **contents** folder as INPUT_DIR and the tag/class in which the headword was delimited by. <br></br> 
 ```shell
 parser_to_mdict [--headword-tag TAG] INPUT_DIR
 ```
