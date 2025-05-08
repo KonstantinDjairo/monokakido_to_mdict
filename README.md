@@ -18,7 +18,9 @@ habitualidade
 <div class="mida">habitualidade</div><div id="index"><a href="#28523-0001">女性名詞</a></div><span class="hatsu">［<span class="pron">abituali ́dadi</span>］</span><div class="gogi" id="28523-0001"><span class="hinsi">女</span> <span class="genre genre-region">ブラジル</span> ＝<strong>habitualismo</strong></div>
 </div></body></html>
 ```
-
+after passing that file to mdict-utils, it will be ready for use. <br></br>
+![image](https://github.com/user-attachments/assets/0ceb9ef4-db6a-46cd-82c2-7867d2442a0a)\
+Enjoy! (⌒ω⌒)
 ## License
 ```
 This program is © 2025, Hashirama Senju 
