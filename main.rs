@@ -1,4 +1,7 @@
 // Copyright © 2025 Hashirama Senju
+
+// TODO: fix writing order, the results are being write in the wrong order, 
+// and it's not processing all files for some reason
 use quick_xml::events::Event;
 use quick_xml::Reader;
 use std::env;
