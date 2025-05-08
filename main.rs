@@ -12,74 +12,53 @@ fn process_xml_file(
     writer: &mut BufWriter<File>,
     headword_tag: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut reader = Reader::from_file(path)?;
+    // Read entire file content
+    let xml_content = std::fs::read_to_string(path)?;
+    
+    // Parse with quick_xml for accurate headword extraction
+    let mut reader = Reader::from_str(&xml_content);
     reader.trim_text(true);
     
-    let mut buf = Vec::new();
-    let mut in_entry_div = false;
-    let mut in_headword_div = false;
-    let mut entry_content = String::new();
     let mut headword = String::new();
-    let mut depth = 0;
-
+    let mut buf = Vec::new();
+    
     loop {
         match reader.read_event_into(&mut buf)? {
             Event::Start(e) => {
                 if e.name().as_ref() == b"div" {
-                    for attr in e.attributes().flatten() {
-                        if attr.key.as_ref() == b"class" {
-                            if attr.value.as_ref() == headword_tag.as_bytes() {
-                                in_headword_div = true;
-                            }
-                            if attr.value.as_ref() == b"entry" {
-                                in_entry_div = true;
-                                entry_content.push_str(&String::from_utf8_lossy(&e.to_vec()));
-                            }
+                    // Handle attribute parsing errors properly
+                    for attr in e.attributes().filter_map(|a| a.ok()) {
+                        if attr.key.as_ref() == b"class" && attr.value.as_ref() == headword_tag.as_bytes() {
+                            // Read text content properly including nested elements
+                            headword = reader.read_text(e.name())?.trim().to_string();
+                            break;
                         }
                     }
                 }
-                
-                if in_entry_div && !in_headword_div {
-                    entry_content.push_str(&String::from_utf8_lossy(&e.to_vec()));
-                }
-                if in_entry_div {
-                    depth += 1;
-                }
-            },
-            Event::Text(e) => {
-                if in_headword_div {
-                    headword = e.unescape()?.into_owned();
-                } else if in_entry_div {
-                    entry_content.push_str(&e.unescape()?);
-                }
-            },
-            Event::End(e) => {
-                if in_entry_div {
-                    if e.name().as_ref() == b"div" {
-                        depth -= 1;
-                        if depth == 0 {
-                            in_entry_div = false;
-                        } else if in_headword_div {
-                            in_headword_div = false;
-                        }
-                    }
-                    entry_content.push_str(&String::from_utf8_lossy(&e.to_vec()));
-                }
-            },
+            }
             Event::Eof => break,
             _ => (),
         }
+        buf.clear();
     }
 
-    if !headword.is_empty() && !entry_content.is_empty() {
-        writeln!(writer, "{}", headword.trim())?;
-        writeln!(writer, "{}", entry_content.trim())?;
+    // Preserve exact HTML structure
+    let html_content = xml_content
+        .lines()
+        .skip(1) // Skip XML declaration
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    if !headword.is_empty() {
+        writeln!(writer, "{}", headword)?;
+        writeln!(writer, "{}", html_content.trim())?;
         writeln!(writer, "</>")?;
     }
 
     Ok(())
 }
 
+// Main function remains unchanged
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
     let (headword_tag, input_dir) = match args.as_slice() {
