@@ -22,25 +22,31 @@ fn process_xml_file(
     let mut headword = String::new();
     let mut buf = Vec::new();
     
-    loop {
-        match reader.read_event_into(&mut buf)? {
-            Event::Start(e) => {
-                if e.name().as_ref() == b"div" {
-                    // Handle attribute parsing errors properly
-                    for attr in e.attributes().filter_map(|a| a.ok()) {
-                        if attr.key.as_ref() == b"class" && attr.value.as_ref() == headword_tag.as_bytes() {
-                            // Read text content properly including nested elements
-                            headword = reader.read_text(e.name())?.trim().to_string();
-                            break;
-                        }
-                    }
-                }
+loop {
+    match reader.read_event_into(&mut buf)? {
+        Event::Start(e) => {
+            // check <見出表記> by name
+            let is_tag = e.name().as_ref() == headword_tag.as_bytes();
+
+            // check <div class="見出表記"> by attribute
+            let class_matches = e
+                .attributes()
+                .filter_map(Result::ok)
+                .any(|attr| attr.key.as_ref() == b"class"
+                          && attr.value.as_ref() == headword_tag.as_bytes());
+
+            if is_tag || class_matches {
+                headword = reader.read_text(e.name())?.trim().to_string();
+                break;
             }
-            Event::Eof => break,
-            _ => (),
         }
-        buf.clear();
+        Event::Eof => break,
+        _ => {}
     }
+    buf.clear();
+}
+
+
 
     // Preserve exact HTML structure
     let html_content = xml_content
