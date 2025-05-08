@@ -1,0 +1,12 @@
+[package]
+name = "parser_to_mdict"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+quick-xml = { version = "0.28", features = ["encoding"] }
+walkdir = "2.3"
+
+[[bin]]
+name = "parser_to_mdict"
+path = "main.rs"
