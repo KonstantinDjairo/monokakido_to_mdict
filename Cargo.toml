@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 quick-xml = { version = "0.28", features = ["encoding"] }
 walkdir = "2.3"
+num_cpus = "1.13"
 
 [[bin]]
 name = "parser_to_mdict"
