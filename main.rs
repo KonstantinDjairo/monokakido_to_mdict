@@ -15,7 +15,7 @@ fn process_xml_file(
     // Read entire file content
     let xml_content = std::fs::read_to_string(path)?;
     
-    // Parse with quick_xml for accurate headword extraction
+   
     let mut reader = Reader::from_str(&xml_content);
     reader.trim_text(true);
     
