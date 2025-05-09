@@ -1,22 +1,19 @@
-# .github/workflows/rust.yml
 name: Rust
 
 on:
   push:
-    branches: [ 'main', 'stable' ]    # any push here triggers both jobs
+    branches: [ 'main', 'stable' ]
   pull_request:
-    branches: [ '**' ]            # PRs still build & test
+    branches: [ '**' ]
 
 permissions:
-  contents: write                # allow create‑release & upload assets
-  id-token: write                # allow download‑artifact in second job
+  contents: write  # for create-release & upload-release-asset
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-    name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -37,16 +34,15 @@ jobs:
           echo "upload_name=$(basename $BIN)" >> $GITHUB_OUTPUT
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4     # ← upgraded to v4
         with:
           name: ${{ matrix.os }}-artifact
           path: ${{ steps.find_bin.outputs.bin_path }}
 
   release:
-    name: Create Release & Attach Binaries
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/stable'
+    if: github.ref =~ 'refs/(heads/main|heads/stable)'
 
     steps:
       - name: Create GitHub Release
@@ -61,22 +57,22 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download Linux artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4   # ← upgraded to v4
         with:
           name: ubuntu-latest-artifact
-          path: ./artifacts/linux
+          path: artifacts/linux
 
       - name: Download Windows artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4   # ← upgraded to v4
         with:
           name: windows-latest-artifact
-          path: ./artifacts/windows
+          path: artifacts/windows
 
       - name: Upload Linux binary to Release
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_rel.outputs.upload_url }}
-          asset_path: ./artifacts/linux/* 
+          asset_path: artifacts/linux/*
           asset_name: linux-binary
           asset_content_type: application/octet-stream
         env:
@@ -86,7 +82,7 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_rel.outputs.upload_url }}
-          asset_path: ./artifacts/windows/* 
+          asset_path: artifacts/windows/*
           asset_name: windows-binary.exe
           asset_content_type: application/octet-stream
         env:
