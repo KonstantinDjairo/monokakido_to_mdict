@@ -77,7 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    let output_file = File::create("dictionary.mdict")?;
+    let output_file = File::create("dictionary.mdict.txt")?;
     let mut writer = BufWriter::new(output_file);
 
     for entry in WalkDir::new(input_dir).into_iter().filter_map(|e| e.ok()) {
