@@ -64,7 +64,7 @@ loop {
     Ok(())
 }
 
-// Main function remains unchanged
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
     let (headword_tag, input_dir) = match args.as_slice() {
