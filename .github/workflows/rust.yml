@@ -1,10 +1,14 @@
 name: Rust
 
+
 on:
   push:
-    branches: [ 'main', 'stable' ] 
+    branches: [ '**' ]      # build on every branch
   pull_request:
-    branches: [ '**' ]  # Run on all pull requests
+    branches: [ '**' ]      # test on every PR
+
+permissions:
+  contents: write          # ensure we can create releases & upload assets
 
 env:
   CARGO_TERM_COLOR: always
@@ -17,39 +21,43 @@ jobs:
         os: [ubuntu-latest, windows-latest]
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Build (release)
-      run: cargo build --release
+      - name: Build (release)
+        run: cargo build --release
 
-    - name: Set binary path
-      id: bin
-      run: |
-        BIN_NAME=myapp  # Change if necessary
-        EXT=""
-        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then EXT=".exe"; fi
-        echo "bin_path=target/release/${BIN_NAME}${EXT}" >> $GITHUB_OUTPUT
-        echo "upload_name=${BIN_NAME}-${{ matrix.os }}${EXT}" >> $GITHUB_OUTPUT
-      shell: bash
+      - name: Set binary path
+        id: bin
+        run: |
+          BIN_NAME=myapp           # ← change this to your actual binary name
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            EXT=".exe"
+          else
+            EXT=""
+          fi
+          echo "bin_path=target/release/${BIN_NAME}${EXT}" >> $GITHUB_OUTPUT
+          echo "upload_name=${BIN_NAME}-${{ matrix.os }}${EXT}" >> $GITHUB_OUTPUT
+        shell: bash
 
-    - name: Create GitHub Release
-      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
-      uses: actions/create-release@v1
-      with:
-        tag_name: ${{ github.sha }}  # Use the latest commit SHA as the release tag
-        release_name: Release ${{ github.sha }}
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create GitHub Release
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/stable'
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.sha }}
+          release_name: Release ${{ github.sha }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Upload Release Asset
-      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
-      uses: actions/upload-release-asset@v1
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ${{ steps.bin.outputs.bin_path }}
-        asset_name: ${{ steps.bin.outputs.upload_name }}
-        asset_content_type: application/octet-stream
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Release Asset
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/stable'
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ steps.bin.outputs.bin_path }}
+          asset_name: ${{ steps.bin.outputs.upload_name }}
+          asset_content_type: application/octet-stream
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
