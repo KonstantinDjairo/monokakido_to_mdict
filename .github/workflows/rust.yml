@@ -1,19 +1,21 @@
+# .github/workflows/rust.yml
 name: Rust
 
 on:
   push:
-    branches: [ '**' ]    # build+release on any branch push
+    branches: [ 'main', 'stable' ]    # any push to main/stable triggers build & release
   pull_request:
-    branches: [ '**' ]    # build+test on any PR
+    branches: [ '**' ]            # PRs still get built & tested
 
 permissions:
-  contents: write        # allow creating releases & uploading assets
+  contents: write                # allow create‑release & upload assets
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
+    name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -25,38 +27,75 @@ jobs:
       - name: Build (release)
         run: cargo build --release
 
-      - name: List release dir for debug
-        run: ls -l target/release
-        shell: bash
-
-      - name: Locate built binary
+      - name: Locate binary
         id: find_bin
+        shell: bash
         run: |
           BIN=$(find target/release -maxdepth 1 -type f | head -n1)
           echo "bin_path=$BIN" >> $GITHUB_OUTPUT
           echo "upload_name=$(basename $BIN)" >> $GITHUB_OUTPUT
-        shell: bash
 
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.os }}-artifact
+          path: ${{ steps.find_bin.outputs.bin_path }}
+
+  release:
+    name: Create Release & Attach Binaries
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/stable'
+
+    steps:
       - name: Create GitHub Release
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/stable'
         id: create_rel
         uses: actions/create-release@v1
         with:
-          # use run number to guarantee uniqueness, and prefix so it's not pure-hex
-          tag_name: run-${{ github.run_number }}
+          tag_name: run-${{ github.run_id }}       # guaranteed unique, not pure‑hex
           release_name: Release #${{ github.run_number }}
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Release Asset
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/stable'
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: ubuntu-latest-artifact
+          path: ./artifacts/linux
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: windows-latest-artifact
+          path: ./artifacts/windows
+
+      - name: Find downloaded binaries
+        id: find_downloads
+        shell: bash
+        run: |
+          L=$(find artifacts/linux -type f | head -n1)
+          W=$(find artifacts/windows -type f | head -n1)
+          echo "linux_bin=$L" >> $GITHUB_OUTPUT
+          echo "windows_bin=$W" >> $GITHUB_OUTPUT
+
+      - name: Upload Linux binary to Release
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_rel.outputs.upload_url }}
-          asset_path: ${{ steps.find_bin.outputs.bin_path }}
-          asset_name: ${{ steps.find_bin.outputs.upload_name }}
+          asset_path: ${{ steps.find_downloads.outputs.linux_bin }}
+          asset_name: $(basename ${{ steps.find_downloads.outputs.linux_bin }})
+          asset_content_type: application/octet-stream
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows binary to Release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_rel.outputs.upload_url }}
+          asset_path: ${{ steps.find_downloads.outputs.windows_bin }}
+          asset_name: $(basename ${{ steps.find_downloads.outputs.windows_bin }})
           asset_content_type: application/octet-stream
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
