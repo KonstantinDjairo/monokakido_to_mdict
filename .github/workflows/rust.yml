@@ -2,7 +2,7 @@ name: Rust
 
 on:
   push:
-    branches: [ 'main', 'dev' ]  # Automatically trigger on push to these branches
+    branches: [ 'main', 'stable' ] 
   pull_request:
     branches: [ '**' ]  # Run on all pull requests
 
