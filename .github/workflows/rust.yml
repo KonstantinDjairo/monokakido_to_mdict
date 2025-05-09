@@ -1,14 +1,13 @@
 name: Rust
 
-
 on:
   push:
-    branches: [ '**' ]      # build on every branch
+    branches: [ '**' ]    # build+release on any branch push
   pull_request:
-    branches: [ '**' ]      # test on every PR
+    branches: [ '**' ]    # build+test on any PR
 
 permissions:
-  contents: write          # ensure we can create releases & upload assets
+  contents: write        # allow creating releases & uploading assets
 
 env:
   CARGO_TERM_COLOR: always
@@ -26,26 +25,26 @@ jobs:
       - name: Build (release)
         run: cargo build --release
 
-      - name: Set binary path
-        id: bin
+      - name: List release dir for debug
+        run: ls -l target/release
+        shell: bash
+
+      - name: Locate built binary
+        id: find_bin
         run: |
-          BIN_NAME=parser_to_mdict     
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            EXT=".exe"
-          else
-            EXT=""
-          fi
-          echo "bin_path=target/release/${BIN_NAME}${EXT}" >> $GITHUB_OUTPUT
-          echo "upload_name=${BIN_NAME}-${{ matrix.os }}${EXT}" >> $GITHUB_OUTPUT
+          BIN=$(find target/release -maxdepth 1 -type f | head -n1)
+          echo "bin_path=$BIN" >> $GITHUB_OUTPUT
+          echo "upload_name=$(basename $BIN)" >> $GITHUB_OUTPUT
         shell: bash
 
       - name: Create GitHub Release
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/stable'
-        id: create_release
+        id: create_rel
         uses: actions/create-release@v1
         with:
-          tag_name: run-${{ github.sha }}
-          release_name: Release ${{ github.sha }}
+          # use run number to guarantee uniqueness, and prefix so it's not pure-hex
+          tag_name: run-${{ github.run_number }}
+          release_name: Release #${{ github.run_number }}
           draft: false
           prerelease: false
         env:
@@ -55,9 +54,9 @@ jobs:
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/stable'
         uses: actions/upload-release-asset@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.bin.outputs.bin_path }}
-          asset_name: ${{ steps.bin.outputs.upload_name }}
+          upload_url: ${{ steps.create_rel.outputs.upload_url }}
+          asset_path: ${{ steps.find_bin.outputs.bin_path }}
+          asset_name: ${{ steps.find_bin.outputs.upload_name }}
           asset_content_type: application/octet-stream
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
