@@ -3,12 +3,13 @@ name: Rust
 
 on:
   push:
-    branches: [ 'main', 'stable' ]    # any push to main/stable triggers build & release
+    branches: [ 'main', 'stable' ]    # any push here triggers both jobs
   pull_request:
-    branches: [ '**' ]            # PRs still get built & tested
+    branches: [ '**' ]            # PRs still build & test
 
 permissions:
   contents: write                # allow create‑release & upload assets
+  id-token: write                # allow download‑artifact in second job
 
 env:
   CARGO_TERM_COLOR: always
@@ -19,7 +20,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ ubuntu-latest, windows-latest ]
 
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +53,7 @@ jobs:
         id: create_rel
         uses: actions/create-release@v1
         with:
-          tag_name: run-${{ github.run_id }}       # guaranteed unique, not pure‑hex
+          tag_name: run-${{ github.run_id }}
           release_name: Release #${{ github.run_number }}
           draft: false
           prerelease: false
@@ -71,21 +72,12 @@ jobs:
           name: windows-latest-artifact
           path: ./artifacts/windows
 
-      - name: Find downloaded binaries
-        id: find_downloads
-        shell: bash
-        run: |
-          L=$(find artifacts/linux -type f | head -n1)
-          W=$(find artifacts/windows -type f | head -n1)
-          echo "linux_bin=$L" >> $GITHUB_OUTPUT
-          echo "windows_bin=$W" >> $GITHUB_OUTPUT
-
       - name: Upload Linux binary to Release
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_rel.outputs.upload_url }}
-          asset_path: ${{ steps.find_downloads.outputs.linux_bin }}
-          asset_name: $(basename ${{ steps.find_downloads.outputs.linux_bin }})
+          asset_path: ./artifacts/linux/* 
+          asset_name: linux-binary
           asset_content_type: application/octet-stream
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -94,8 +86,8 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_rel.outputs.upload_url }}
-          asset_path: ${{ steps.find_downloads.outputs.windows_bin }}
-          asset_name: $(basename ${{ steps.find_downloads.outputs.windows_bin }})
+          asset_path: ./artifacts/windows/* 
+          asset_name: windows-binary.exe
           asset_content_type: application/octet-stream
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
