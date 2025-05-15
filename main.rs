@@ -37,6 +37,8 @@ fn process_xml_file(
                         && attr.value.as_ref() == headword_tag.as_bytes());
 
                 if is_tag || class_matches {
+                    // FIXME: we arent extracting the headword correctly, 
+                    //        because it should not contain any html tag along with it.
                     headword = reader.read_text(e.name())?.trim().to_string();
                     break;
                 }
