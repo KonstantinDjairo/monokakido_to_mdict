@@ -1,71 +1,70 @@
 // Copyright © 2025 Hashirama Senju
 use quick_xml::events::Event;
 use quick_xml::Reader;
+use rayon::prelude::*;
 use std::env;
 use std::fs::File;
 use std::io::{BufWriter, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
+
+// Result for one processed file
+struct ProcessedEntry {
+    headword: String,
+    content: String,
+}
 
 fn process_xml_file(
     path: &Path,
-    writer: &mut BufWriter<File>,
     headword_tag: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    // Read entire file content
+) -> Result<Option<ProcessedEntry>, Box<dyn std::error::Error + Send + Sync>> {
     let xml_content = std::fs::read_to_string(path)?;
-    
-   
+
     let mut reader = Reader::from_str(&xml_content);
     reader.trim_text(true);
-    
+
     let mut headword = String::new();
     let mut buf = Vec::new();
-    
-loop {
-    match reader.read_event_into(&mut buf)? {
-        Event::Start(e) => {
-            // check <見出表記> by name
-            let is_tag = e.name().as_ref() == headword_tag.as_bytes();
 
-            // check <div class="見出表記"> by attribute
-            let class_matches = e
-                .attributes()
-                .filter_map(Result::ok)
-                .any(|attr| attr.key.as_ref() == b"class"
-                          && attr.value.as_ref() == headword_tag.as_bytes());
+    loop {
+        match reader.read_event_into(&mut buf)? {
+            Event::Start(e) => {
+                let is_tag = e.name().as_ref() == headword_tag.as_bytes();
+                let class_matches = e
+                    .attributes()
+                    .filter_map(Result::ok)
+                    .any(|attr| attr.key.as_ref() == b"class"
+                        && attr.value.as_ref() == headword_tag.as_bytes());
 
-            if is_tag || class_matches {
-                headword = reader.read_text(e.name())?.trim().to_string();
-                break;
+                if is_tag || class_matches {
+                    headword = reader.read_text(e.name())?.trim().to_string();
+                    break;
+                }
             }
+            Event::Eof => break,
+            _ => {}
         }
-        Event::Eof => break,
-        _ => {}
+        buf.clear();
     }
-    buf.clear();
-}
 
+    if headword.is_empty() {
+        return Ok(None);
+    }
 
-
-    // Preserve exact HTML structure
     let html_content = xml_content
         .lines()
-        .skip(1) // Skip XML declaration
+        .skip(1)
         .collect::<Vec<_>>()
         .join("\n");
 
-    if !headword.is_empty() {
-        writeln!(writer, "{}", headword)?;
-        writeln!(writer, "{}", html_content.trim())?;
-        writeln!(writer, "</>")?;
-    }
-
-    Ok(())
+    Ok(Some(ProcessedEntry {
+        headword,
+        content: html_content.trim().to_string(),
+    }))
 }
 
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
     let (headword_tag, input_dir) = match args.as_slice() {
         [_, flag, tag, dir] if flag == "--headword-tag" => (tag.as_str(), dir),
@@ -77,16 +76,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    let output_file = File::create("dictionary.mdict.txt")?;
+    let entries: Vec<PathBuf> = WalkDir::new(input_dir)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .map(|e| e.into_path())
+        .filter(|p| p.extension().map(|e| e == "xml").unwrap_or(false))
+        .collect();
+
+    // Parallel processing
+    let processed: Vec<_> = entries
+    .par_iter()
+    .filter_map(|path| match process_xml_file(path, headword_tag) {
+        Ok(Some(entry)) => Some(Ok::<_, Box<dyn std::error::Error + Send + Sync>>(entry)),
+        Ok(None) => None,
+        Err(e) => {
+            eprintln!("Error processing {}: {}", path.display(), e);
+            None
+        }
+    })
+    .collect::<Result<_, _>>()?;
+
+
+    // Write sequentially
+    let output_file = File::create("dictionary.mdict")?;
     let mut writer = BufWriter::new(output_file);
 
-    for entry in WalkDir::new(input_dir).into_iter().filter_map(|e| e.ok()) {
-        let path = entry.path();
-        if path.extension().map(|e| e == "xml").unwrap_or(false) {
-            if let Err(e) = process_xml_file(path, &mut writer, headword_tag) {
-                eprintln!("Error processing {}: {}", path.display(), e);
-            }
-        }
+    for entry in processed {
+        writeln!(writer, "{}", entry.headword)?;
+        writeln!(writer, "{}", entry.content)?;
+        writeln!(writer, "</>")?;
     }
 
     writer.flush()?;
