@@ -14,42 +14,41 @@ struct ProcessedEntry {
     content: String,
 }
 
+
 fn process_xml_file(
     path: &Path,
-    headword_tag: &str, // pass "headword" here
+    headword_tag: &str,
 ) -> Result<Option<ProcessedEntry>, Box<dyn std::error::Error + Send + Sync>> {
-    
     let xml = std::fs::read_to_string(path)?;
     let mut reader = Reader::from_str(&xml);
     reader.trim_text(true);
 
-  
     let mut buf = Vec::new();
     let mut headword = String::new();
-    let mut in_headword_div = false;
+    let mut in_headword = false;
+    let tag_bytes = headword_tag.as_bytes();
 
- 
     loop {
         match reader.read_event_into(&mut buf)? {
-            Event::Start(e) if e.name().as_ref() == b"div" => {
-                // check class="headword"
-                let is_headword_div = e
+            Event::Start(ref e) => {
+                let is_tag = e.name().as_ref() == tag_bytes;
+                let class_matches = e
                     .attributes()
                     .filter_map(Result::ok)
-                    .any(|attr| attr.key.as_ref() == b"class"
-                        && attr.value.as_ref() == headword_tag.as_bytes());
-                if is_headword_div {
-                    in_headword_div = true;
+                    .any(|attr| attr.key.as_ref() == b"class" && attr.value.as_ref() == tag_bytes);
+
+                if is_tag || class_matches {
+                    in_headword = true;
                 }
             }
 
-            Event::Text(e) if in_headword_div => {
-                // append only the text, unescaped and trimmed
+            Event::Text(e) if in_headword => {
+                // Only collect the decoded text, no tags
                 headword.push_str(e.unescape()?.trim());
             }
 
-            Event::End(e) if in_headword_div && e.name().as_ref() == b"div" => {
-                // end of headword div
+            Event::End(ref e) if in_headword && e.name().as_ref() == tag_bytes => {
+                // Done with headword
                 break;
             }
 
@@ -59,23 +58,24 @@ fn process_xml_file(
         buf.clear();
     }
 
+    // Skip files without a headword
     if headword.is_empty() {
         return Ok(None);
     }
 
-    let html_body = xml
+    // Rebuild the rest of the file as one line (skip XML declaration)
+    let content = xml
         .lines()
-        .skip(1)                     // drop "<?xml...?>" line
+        .skip(1)
         .collect::<Vec<_>>()
-        .join("")                    // collapse into one line
-        .trim()                      // trim leading/trailing whitespace
+        .join("")
+        .trim()
         .to_string();
 
-    Ok(Some(ProcessedEntry {
-        headword,
-        content: html_body,
-    }))
+    Ok(Some(ProcessedEntry { headword, content }))
 }
+
+
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
