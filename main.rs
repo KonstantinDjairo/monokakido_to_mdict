@@ -19,7 +19,6 @@ fn process_xml_file(
     headword_tag: &str,
 ) -> Result<Option<ProcessedEntry>, Box<dyn std::error::Error + Send + Sync>> {
     let xml_content = std::fs::read_to_string(path)?;
-
     let mut reader = Reader::from_str(&xml_content);
     reader.trim_text(true);
 
@@ -36,12 +35,30 @@ fn process_xml_file(
                     .any(|attr| attr.key.as_ref() == b"class"
                         && attr.value.as_ref() == headword_tag.as_bytes());
 
-                if is_tag || class_matches {
-                    // FIXME: we arent extracting the headword correctly, 
-                    //        because it should not contain any html tag along with it.
-                    headword = reader.read_text(e.name())?.trim().to_string();
-                    break;
-                }
+if is_tag || class_matches {
+    let mut headword_buf = String::new();
+    loop {
+        match reader.read_event_into(&mut buf)? {
+            Event::Text(e) => {
+                // 1) Unescape entities and get a &str
+                let decoded: std::borrow::Cow<'_, str> = e.unescape()?;               
+                // 2) Trim whitespace fragments
+                headword_buf.push_str(decoded.trim());                               
+            }
+            Event::End(end) if end.name().as_ref() == headword_tag.as_bytes() => {
+                // Matching </tag> – stop collecting
+                break;
+            }
+            Event::Eof => break,  // safety net
+            _ => {}
+        }
+        buf.clear();                                                              
+    }
+    headword = headword_buf;
+    	     break;
+    }
+
+
             }
             Event::Eof => break,
             _ => {}
@@ -64,6 +81,7 @@ fn process_xml_file(
         content: html_content.trim().to_string(),
     }))
 }
+
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
