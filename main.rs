@@ -16,50 +16,43 @@ struct ProcessedEntry {
 
 fn process_xml_file(
     path: &Path,
-    headword_tag: &str,
+    headword_tag: &str, // pass "headword" here
 ) -> Result<Option<ProcessedEntry>, Box<dyn std::error::Error + Send + Sync>> {
-    let xml_content = std::fs::read_to_string(path)?;
-    let mut reader = Reader::from_str(&xml_content);
+    
+    let xml = std::fs::read_to_string(path)?;
+    let mut reader = Reader::from_str(&xml);
     reader.trim_text(true);
 
-    let mut headword = String::new();
+  
     let mut buf = Vec::new();
+    let mut headword = String::new();
+    let mut in_headword_div = false;
 
+ 
     loop {
         match reader.read_event_into(&mut buf)? {
-            Event::Start(e) => {
-                let is_tag = e.name().as_ref() == headword_tag.as_bytes();
-                let class_matches = e
+            Event::Start(e) if e.name().as_ref() == b"div" => {
+                // check class="headword"
+                let is_headword_div = e
                     .attributes()
                     .filter_map(Result::ok)
                     .any(|attr| attr.key.as_ref() == b"class"
                         && attr.value.as_ref() == headword_tag.as_bytes());
-
-if is_tag || class_matches {
-    let mut headword_buf = String::new();
-    loop {
-        match reader.read_event_into(&mut buf)? {
-            Event::Text(e) => {
-                // 1) Unescape entities and get a &str
-                let decoded: std::borrow::Cow<'_, str> = e.unescape()?;               
-                // 2) Trim whitespace fragments
-                headword_buf.push_str(decoded.trim());                               
+                if is_headword_div {
+                    in_headword_div = true;
+                }
             }
-            Event::End(end) if end.name().as_ref() == headword_tag.as_bytes() => {
-                // Matching </tag> – stop collecting
+
+            Event::Text(e) if in_headword_div => {
+                // append only the text, unescaped and trimmed
+                headword.push_str(e.unescape()?.trim());
+            }
+
+            Event::End(e) if in_headword_div && e.name().as_ref() == b"div" => {
+                // end of headword div
                 break;
             }
-            Event::Eof => break,  // safety net
-            _ => {}
-        }
-        buf.clear();                                                              
-    }
-    headword = headword_buf;
-    	     break;
-    }
 
-
-            }
             Event::Eof => break,
             _ => {}
         }
@@ -70,18 +63,19 @@ if is_tag || class_matches {
         return Ok(None);
     }
 
-    let html_content = xml_content
+    let html_body = xml
         .lines()
-        .skip(1)
+        .skip(1)                     // drop "<?xml...?>" line
         .collect::<Vec<_>>()
-        .join("\n");
+        .join("")                    // collapse into one line
+        .trim()                      // trim leading/trailing whitespace
+        .to_string();
 
     Ok(Some(ProcessedEntry {
         headword,
-        content: html_content.trim().to_string(),
+        content: html_body,
     }))
 }
-
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
