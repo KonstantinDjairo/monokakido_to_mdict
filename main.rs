@@ -42,10 +42,22 @@ fn process_xml_file(
                 }
             }
 
-            Event::Text(e) if in_headword => {
-                // Only collect the decoded text, no tags
-                headword.push_str(e.unescape()?.trim());
-            }
+Event::Text(e) if in_headword => {
+    // 1) Unescape into a Cow<'_, str> and then into an owned String
+    let decoded_owned: String = e.unescape()?.into_owned();
+    // 2) Trim whitespace and take only the first word
+    if let Some(first) = decoded_owned
+        .trim()
+        .split_whitespace()
+        .next()
+    {
+        headword.push_str(first);
+        // stop collecting after first word
+        in_headword = false;
+    }
+}
+
+
 
             Event::End(ref e) if in_headword && e.name().as_ref() == tag_bytes => {
                 // Done with headword
