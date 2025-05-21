@@ -19,6 +19,21 @@ habitualidade
 after passing that file to mdict-utils, it will be ready for use. <br></br>
 ![image](https://github.com/user-attachments/assets/0ceb9ef4-db6a-46cd-82c2-7867d2442a0a)\
 Enjoy! (⌒ω⌒)
+
+Sure! Here's a more polished and engaging version of your text, with a touch of creativity and clarity:
+
+---
+
+## 📚 Supported Dictionaries
+
+✨ *All* **物書堂** dictionaries are supported out of the box.
+
+To see the specific dictionaries I've worked on, check out my [Freemdict profile](https://forum.freemdict.com/u/%E6%9F%B1%E9%96%93%E5%8D%83%E4%BD%8F/summary) and scroll down to the **TOP TOPICS** section.
+
+---
+
+
+
 ## License
 ```
 This program is © 2025, Hashirama Senju 
