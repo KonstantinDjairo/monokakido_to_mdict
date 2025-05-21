@@ -20,8 +20,6 @@ after passing that file to mdict-utils, it will be ready for use. <br></br>
 ![image](https://github.com/user-attachments/assets/0ceb9ef4-db6a-46cd-82c2-7867d2442a0a)\
 Enjoy! (⌒ω⌒)
 
-Sure! Here's a more polished and engaging version of your text, with a touch of creativity and clarity:
-
 ---
 
 ## 📚 Supported Dictionaries
