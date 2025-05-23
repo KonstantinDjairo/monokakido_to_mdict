@@ -26,7 +26,8 @@ Enjoy! (⌒ω⌒)
 
 ✨ *All* **物書堂** dictionaries are supported out of the box.
 
-To see the specific dictionaries I've worked on, check out my [Freemdict profile](https://forum.freemdict.com/u/%E6%9F%B1%E9%96%93%E5%8D%83%E4%BD%8F/summary) and scroll down to the **TOP TOPICS** section.
+To see the specific dictionaries I've worked on, check out :\
+https://dictionaries.ajattix.org
 
 ---
 
